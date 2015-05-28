@@ -103,11 +103,17 @@ class World(object):
     def add_scorebar(self):
         """Add the score bar to the world.
         """
+        sb = ScoreBar(self)
+        self.add_entity(sb)
         return
 
     def add_tree(self):
         """Add the tree.
         """
+        tree = GameEntity(self, 'tree', pygame.Surface([271,413], SRCALPHA, 32))
+        tree.rect = Rect(87,214,121,413)
+        self.add_entity(tree)
+        
         return
 
     def record(self, rt, trial_no, run_length):
@@ -391,7 +397,7 @@ class ScoreBar(GameEntity):
 
     def __init__(self, world):
         
-        self.color = (0,0,0)#(254,254,151)
+        self.color = (0,0,0)
         self.font = pygame.font.Font('data/intuitive.ttf', 32)
         scoreimage = self.font.render('Score: ' + str(world.score), True, self.color)
         GameEntity.__init__(self, world, 'scorebar', scoreimage)

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
+from __future__ import print_function
 from wam import *
 from menu import *
-import numpy, sys, argparse
+import sys, argparse
 from datetime import datetime
 
 # game presentation parameters
@@ -12,12 +13,16 @@ M_WARM_UP, M_START_GAME, M_EXIT = (0, 1, 2)
 SCREEN_SIZE = (1000, 734)
 Fullscreen = False
 GAME_STATE = None
-HOLE_COUNT = 4
 HOLE_POSITIONS = [(320,450), (300, 600), (700, 500), (680, 650)]
 HOLE_DIST = None
-MEAN_RUN_LENGTH = 40
 SCORE = 0
-P_FAMILIAR, P_HOLE_DIST, P_DIST_HISTORY, P_CONTEXTS = (None, None, None, None)
+DIST_SEQ = [1, 2, 3, 2, 3, 1]
+BUNDLE_LENGTH_SEQ = [4, 4, 4, 4, 4, 4]
+ALL_MOLE_DISTS = [[0.1, 0.1, 0.2, 0.6],
+                  [0.2, 0.6, 0.1, 0.1],
+                  [0.6, 0.2, 0.1, 0.1]]
+ALL_ANIMAL_DISTS = [[0.25, 0.25, 0.25, 0.25]]
+
 WARMUP_TRIAL_NO, REAL_TRIAL_NO = 20, 200
 
 # world parameters
@@ -29,27 +34,21 @@ def init_world():
     All static objects.
     """
     # set up the world (including set initial hole dist)
-    print GAME_STATE, P_FAMILIAR, P_HOLE_DIST, P_DIST_HISTORY, P_CONTEXTS
-    if GAME_STATE >= S_BLOCK1:
-        world = World(correlated = CORRELATED,
-                      alpha = ALPHA,
-                      block=GAME_STATE, 
-                      previous_familiar = P_FAMILIAR,
-                      previous_hole_dist = P_HOLE_DIST,
-                      previous_dist_history = P_DIST_HISTORY,
-                      previous_contexts = P_CONTEXTS)
-    else:
-        world = World(correlated = CORRELATED,
-                      alpha = ALPHA)
+    world = World(dist_seq = DIST_SEQ,
+                  bundle_length_seq = BUNDLE_LENGTH_SEQ,
+                  all_most_dists = ALL_MOLE_DISTS,
+                  all_animal_dists = ALL_ANIMAL_DISTS,
+                  correlated = False)
     
     # simulate and add the tree
-    tree = GameEntity(world, 'tree', pygame.Surface([271,413], SRCALPHA, 32))
-    tree.rect = Rect(87,214,121,413)
-    world.add_entity(tree)
+    world.add_tree()
 
+    # add a score bar
+    world.add_scorebar()
+    
     # add the holes
     world.hole_positions = HOLE_POSITIONS
-    for hole_id in xrange(HOLE_COUNT):
+    for hole_id in xrange(len(HOLE_POSITIONS)):
         hole = Hole(world, hole_id)
         world.add_entity(hole)
         
@@ -60,17 +59,13 @@ def init_world():
         hole_cover.rect = Rect(x, y - h, w, h)
         world.add_entity(hole_cover)
 
-    # add a score bar
-    sb = ScoreBar(world)
-    world.add_entity(sb)
-
     return world
     
 def rearrange_distractors(world):
     """Randomly rearrange the positions of distractors on the screen.
     """    
     for entity in world.entities:
-        if entity.type == 'distractor':
+        if entity.type == 'animal':
             entity.auto_location()
 
 def start_game(screen, trial_total):
@@ -107,8 +102,8 @@ def start_game(screen, trial_total):
 
     # current run
     current_run = 0
-    current_max_run = numpy.random.poisson(MEAN_RUN_LENGTH)
-
+    current_max_run = 25
+    
     # take care of mode differences
     # If mode is set to WARM_UP, use a uniform
     # distribution for mole position. 
@@ -167,7 +162,7 @@ def start_game(screen, trial_total):
         if current_run >= current_max_run:
             print trial_no, trial_total
             if trial_no >= trial_total: break
-            current_max_run = numpy.random.poisson(MEAN_RUN_LENGTH)
+            current_max_run = 25
             current_run = 0
             world.set_hole_dist()
 
