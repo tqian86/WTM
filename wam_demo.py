@@ -7,178 +7,206 @@ from menu import *
 import sys, argparse
 from datetime import datetime
 
-# game presentation parameters
-S_MENU, S_PAUSED, S_WARM_UP, S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5 = (-2, -1, 0, 1, 2, 3, 4, 5)
-M_WARM_UP, M_START_GAME, M_EXIT = (0, 1, 2)
-SCREEN_SIZE = (1000, 734)
-Fullscreen = False
-GAME_STATE = None
-HOLE_POSITIONS = [(320,450), (300, 600), (700, 500), (680, 650)]
-HOLE_DIST = None
-SCORE = 0
-DIST_SEQ = [1, 2, 3, 2, 3, 1]
-BUNDLE_LENGTH_SEQ = [4, 4, 4, 4, 4, 4]
-ALL_MOLE_DISTS = [[0.1, 0.1, 0.2, 0.6],
-                  [0.2, 0.6, 0.1, 0.1],
-                  [0.6, 0.2, 0.1, 0.1]]
-ALL_ANIMAL_DISTS = [[0.25, 0.25, 0.25, 0.25]]
 
-WARMUP_TRIAL_NO, REAL_TRIAL_NO = 20, 200
-
-# world parameters
-ALPHA = 1
-CORRELATED = True
-
-def init_world():
-    """Set up the world (i.e. background), the tree, and the holes.
-    All static objects.
-    """
-    # set up the world (including set initial hole dist)
-    world = World(dist_seq = DIST_SEQ,
-                  bundle_length_seq = BUNDLE_LENGTH_SEQ,
-                  all_most_dists = ALL_MOLE_DISTS,
-                  all_animal_dists = ALL_ANIMAL_DISTS,
-                  correlated = False)
+class Game(object):
     
-    # simulate and add the tree
-    world.add_tree()
-
-    # add a score bar
-    world.add_scorebar()
+    # game presentation parameters
+    S_MENU, S_PAUSED, S_WARM_UP, S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5 = (-2, -1, 0, 1, 2, 3, 4, 5)
+    M_WARM_UP, M_START_GAME, M_EXIT = (0, 1, 2)
+    SCREEN_SIZE = (1000, 734)
+    HOLE_POSITIONS = [(320,450), (300, 600), (700, 500), (680, 650)]
+    HOLE_DIST = None
+    DIST_SEQ = [1, 2, 3, 2, 3, 1]
+    BUNDLE_LENGTH_SEQ = [4, 4, 4, 4, 4, 4]
+    ALL_MOLE_DISTS = [[0.1, 0.1, 0.2, 0.6],
+                      [0.2, 0.6, 0.1, 0.1],
+                      [0.6, 0.2, 0.1, 0.1]]
+    ALL_ANIMAL_DISTS = [[0.25, 0.25, 0.25, 0.25],
+                        [0.25, 0.25, 0.25, 0.25],
+                        [0.25, 0.25, 0.25, 0.25]]
     
-    # add the holes
-    world.hole_positions = HOLE_POSITIONS
-    for hole_id in xrange(len(HOLE_POSITIONS)):
-        hole = Hole(world, hole_id)
-        world.add_entity(hole)
+    WARMUP_TRIAL_NO, REAL_TRIAL_NO = 20, 200
+
+    def __init__(self):
+        """Initialize a game with a given world.
+        """
+        # set up screen 
+        self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, 0, 32)
+        self.state = Game.S_MENU
+        self.fullscreen = False
+
+        # set up menu
+        self.menu = Menu()
+        self.menu.set_fontsize(44)
+        self.menu.init(['Warm up', 'Start Game', 'Exit'], self.screen)
+
+        # set up the world 
+        world = World(dist_seq = Game.DIST_SEQ,
+                      bundle_length_seq = Game.BUNDLE_LENGTH_SEQ,
+                      all_mole_dists = Game.ALL_MOLE_DISTS,
+                      all_animal_dists = Game.ALL_ANIMAL_DISTS,
+                      correlated = args.correlated_cue == 'yes')
+        world.add_tree()
+        world.add_scorebar()
         
-        # hole covers are set up to prevent distractors from being
-        # positioned above holes
-        hole_cover = GameEntity(world, 'hole_cover', pygame.Surface(hole.image.get_size(), SRCALPHA, 32))
-        x, y, w, h = hole.rect
-        hole_cover.rect = Rect(x, y - h, w, h)
-        world.add_entity(hole_cover)
+        world.hole_positions = Game.HOLE_POSITIONS
+        for hole_id in xrange(len(Game.HOLE_POSITIONS)):
+            hole = Hole(world, hole_id)
+            world.add_entity(hole)
+        
+            # hole covers are set up to prevent distractors from being positioned above holes
+            hole_cover = GameEntity(world, 'hole_cover', pygame.Surface(hole.image.get_size(), SRCALPHA, 32))
+            x, y, w, h = hole.rect
+            hole_cover.rect = Rect(x, y - h, w, h)
+            world.add_entity(hole_cover)
 
-    return world
-    
-def rearrange_distractors(world):
-    """Randomly rearrange the positions of distractors on the screen.
-    """    
-    for entity in world.entities:
-        if entity.type == 'animal':
-            entity.auto_location()
-
-def start_game(screen, trial_total):
-    """Start the game. 
-    """
-    global P_FAMILIAR, P_HOLE_DIST, P_DIST_HISTORY, P_CONTEXTS, SCORE
-
-    # set up world
-    world = init_world()
-
-    # show a "GET Ready"
-    message = "Get Ready!"
-    countdown = 3
-    screen.fill((255,255,255))
-    font = pygame.font.Font("data/fof.ttf", 80);
-    text_surface = font.render(message, True, (0, 0, 0))
-    for i in xrange(3):
-        screen.fill((245,245,245))
-        screen.blit(text_surface, (350,280))
-        countdown_surface = font.render(str(countdown-i), True, (0,0,0))
-        screen.blit(countdown_surface, (500,430))
-        pygame.display.update()
-        pygame.mixer.Sound('sounds/ticking.wav').play()
-        pygame.time.wait(1000)
-
-    pygame.mouse.set_visible(True)
-    pygame.mixer.music.play()
-
-    # set up clock
-    clock = pygame.time.Clock()
-
-    # restrict the activity of the mole
-    move_count = 0
-
-    # current run
-    current_run = 0
-    current_max_run = 25
-    
-    # take care of mode differences
-    # If mode is set to WARM_UP, use a uniform
-    # distribution for mole position. 
-    if GAME_STATE == S_WARM_UP:
-        world.hole_dist = (0.25, 0.25, 0.25, 0.25)
-        current_max_run = 20
-
-    trial_no = 0
-    # start the trials
-    while True:
-        trial_no += 1
-        current_run += 1
-
+        self.world = world
+        
+    def start(self):
+        """Start the game.
+        """
         while True:
-           
-            for event in pygame.event.get():
-                if event.type == KEYDOWN:
-                    if event.key == K_ESCAPE:
+
+            if self.state == Game.S_MENU:
+                self.screen.fill((51,51,51))
+                self.menu.draw()
+                pygame.mixer.music.stop()
+
+            # React to user choices at the menu screen
+            e = pygame.event.wait()
+            if e.type == KEYDOWN:
+                if e.key == K_f:
+                    self.fullscreen = not self.fullscreen
+                    if self.fullscreen:
+                        self.screen = pygame.display.set_mode(SCREEN_SIZE, FULLSCREEN, 32)
+                    else:
+                        self.screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
+                elif e.key == K_UP:
+                    self.menu.draw(-1)
+                elif e.key == K_DOWN:
+                    self.menu.draw(1)
+                elif e.key == K_RETURN:
+                    choice = self.menu.get_position()
+                    if choice == Game.M_START_GAME:
+                        for block in ([0,1]):
+                            self.state = block
+                            whack_session(bundle_indices = block)
+                            pause_game(self.screen)
+                            self.state = Game.S_MENU
+                    elif choice == Game.M_WARM_UP:
+                        self.state = Game.S_WARM_UP
+                        whack_session(warm_up=True)
+                        self.state = Game.S_MENU
+                    elif choice == Game.M_EXIT:
                         return
-                    if event.key == K_s:
-                        if pygame.mixer.music.get_busy():
-                            pygame.mixer.music.fadeout(2000)
-                        else:
-                            pygame.mixer.music.play()
-                if event.type == MOUSEBUTTONDOWN:
-                    mouse_x, mouse_y = pygame.mouse.get_pos()
-                    world.mole.get_whacked(mouse_x, mouse_y)
 
-            time_passed = clock.tick(60)
-
-            if world.mole.moveable():
-                rearrange_distractors(world)
-                world.mole.move_weighted(verbose = False)
-        
-            world.mole.show(time_passed)
-            world.mole.wait(time_passed)
-            world.mole.hide(time_passed)
-
-            if world.mole.moved > move_count:
-                move_count += 1
-                break
-
-            world.render(screen)
-            world.mole.show_hammered_image(screen)
+            if e.type == QUIT:
+                return
 
             pygame.display.update()
+        
+    def rearrange_animals(self):
+        """Randomly rearrange the positions of animals on the screen.
+        """    
+        for entity in self.world.entities:
+            if entity.type == 'animal':
+                entity.auto_location()
+                
+    def whack_session(self, bundle_indices = None, warm_up = False):
+        """Start the game. 
+        """
+        # show a "GET Ready"
+        message = "Get Ready!"
+        countdown = 3
+        self.screen.fill((255,255,255))
+        font = pygame.font.Font("data/fof.ttf", 80);
+        text_surface = font.render(message, True, (0, 0, 0))
+        for i in xrange(3):
+            self.screen.fill((245,245,245))
+            self.screen.blit(text_surface, (350,280))
+            countdown_surface = font.render(str(countdown-i), True, (0,0,0))
+            self.screen.blit(countdown_surface, (500,430))
+            pygame.mixer.Sound('sounds/ticking.wav').play()
+            pygame.display.update()
+            pygame.time.wait(1000)
+            
+        pygame.mouse.set_visible(True)
+        pygame.mixer.music.play()
 
-        # make a record of this trial
-        if GAME_STATE in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5): 
-            world.record(rt = world.mole.get_alive_time(),
-                         trial_no = trial_no, 
-                         run_length = current_max_run)
+        # set up clock
+        clock = pygame.time.Clock()
+        
+        # restrict the activity of the mole
+        move_count = 0
 
-        print 'trial: ', trial_no , world.mole.get_alive_time()
+        # take care of mode differences
+        # If mode is set to WARM_UP, use a uniform distribution for mole position. 
+        if self.state == S_WARM_UP:
+            bundle_length = 20,
+            mole_dist = [0.25, 0.25, 0.25, 0.25]
+            animal_dist = [0.25, 0.25, 0.25, 0.25]
+        
+        # start the trials
+        for bundle_idx in bundle_indices:
+            bundle_length, mole_dist, animal_dist = self.world.get_bundle_info(self.bundle_idx)
 
-        if current_run >= current_max_run:
-            print trial_no, trial_total
-            if trial_no >= trial_total: break
-            current_max_run = 25
-            current_run = 0
-            world.set_hole_dist()
+            # here and below needs work
+            while True:
+                for event in pygame.event.get():
+                    if event.type == KEYDOWN:
+                        if event.key == K_ESCAPE:
+                            return
+                        if event.key == K_s:
+                            if pygame.mixer.music.get_busy():
+                                pygame.mixer.music.fadeout(2000)
+                            else:
+                                pygame.mixer.music.play()
+                    if event.type == MOUSEBUTTONDOWN:
+                        mouse_x, mouse_y = pygame.mouse.get_pos()
+                        self.world.mole.get_whacked(mouse_x, mouse_y)
+
+                time_passed = clock.tick(60)
+                
+                if self.world.mole.moveable():
+                    rearrange_distractors(self.world)
+                    self.world.mole.move_weighted(verbose = False)
+        
+                self.world.mole.show(time_passed)
+                self.world.mole.wait(time_passed)
+                self.world.mole.hide(time_passed)
+
+                if self.world.mole.moved > move_count:
+                    move_count += 1
+                    break
+
+                self.world.render(self.screen)
+                self.world.mole.show_hammered_image(self.screen)
+
+                pygame.display.update()
+
+            # make a record of this trial
+            if self.state in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5): 
+                self.world.record(rt = self.world.mole.get_alive_time(),
+                             trial_no = trial_no, 
+                             run_length = current_max_run)
+
+            # print 'trial: ', trial_no , self.world.mole.get_alive_time()
+
+            if current_run >= current_max_run:
+                print("Reached the end of the bundle.", file=sys.stderr)
+                if trial_no >= trial_total: break
+                current_max_run = 25
+                current_run = 0
+                self.world.set_hole_dist()
 
             
-    if GAME_STATE in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5):
-        world.print_history(open(str(datetime.now()) + '.txt', 'w'))
-        P_FAMILIAR, P_HOLE_DIST, P_DIST_HISTORY, P_CONTEXTS = (world.is_familiar_hole_dist,
-                                                               world.hole_dist,
-                                                               world.hole_dist_history,
-                                                               world.context_choices)
-    SCORE = world.score
+        if self.state in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5):
+            self.world.print_history(open(str(datetime.now()) + '.txt', 'w'))
 
-def pause_game(screen):
+def pause_game(screen, world):
 
-    if GAME_STATE in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4):
-        score_msg = "Good job! Your score is %s" % (SCORE)
+    if self.state in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4):
+        score_msg = "Good job! Your score is %s" % (world.score)
         break_msg = "Take a break. A new wave of moles are coming in 2 minutes!"
         continue_msg = "Touch anywhere to continue"
         font = pygame.font.Font("data/intuitive.ttf", 30);
@@ -216,78 +244,15 @@ def pause_game(screen):
         pygame.time.wait(1000 * 3)
         return
 
-def run():
-
-    global GAME_STATE, Fullscreen
-    pygame.init()
-
-    # set up screen 
-    w, h = SCREEN_SIZE
-    screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
-
-    # set up menu
-    menu = Menu()
-    menu.set_fontsize(44)
-    menu.init(['Warm up', 'Start Game', 'Exit'], screen)
-    
-    # set the initial state of the game "S_MENU"
-    GAME_STATE = S_MENU
-    
-    while True:
-
-        if GAME_STATE == S_MENU:
-            screen.fill((51,51,51))
-            menu.draw()
-            pygame.mixer.music.stop()
-
-            # Get the next event                                                                                
-            e = pygame.event.wait()
-      
-            if e.type == KEYDOWN:
-                if e.key == K_f:
-                    Fullscreen = not Fullscreen
-                    if Fullscreen:
-                        screen = pygame.display.set_mode(SCREEN_SIZE, FULLSCREEN, 32)
-                    else:
-                        screen = pygame.display.set_mode(SCREEN_SIZE, 0, 32)
-                elif e.key == K_UP:
-                    menu.draw(-1)
-                elif e.key == K_DOWN:
-                    menu.draw(1)
-                elif e.key == K_RETURN:
-                    choice = menu.get_position()
-                    if choice == M_START_GAME:
-                        for block in (S_BLOCK1, S_BLOCK2, S_BLOCK3, S_BLOCK4, S_BLOCK5):
-                            GAME_STATE = block
-                            start_game(screen, trial_total=REAL_TRIAL_NO)
-                            pause_game(screen)
-                        GAME_STATE = S_MENU
-                    elif choice == M_WARM_UP:
-                        GAME_STATE = S_WARM_UP
-                        start_game(screen, trial_total=WARMUP_TRIAL_NO)
-                        GAME_STATE = S_MENU
-                    elif choice == M_EXIT:
-                        return
-
-        if e.type == QUIT:
-            return
-
-        pygame.display.update()
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Run the Whack-The-Mole experiment.')
-    parser.add_argument('--correlated_cue', required=True, choices=['yes', 'no'], 
+    parser.add_argument('--correlated_cue', choices=['yes', 'no'], default = 'no',
                         help='specify whether the background animals are correlated with contexts')
-    parser.add_argument('--alpha', type=int, default=1, help='larger alpha value creates more novel contexts')
     args = parser.parse_args()
 
-    # set the correct variables
-    if args.correlated_cue == 'yes': 
-        CORRELATED = True
-    else:
-        CORRELATED = False
-    
-    ALPHA = args.alpha
-
-    run()
+    pygame.init()
+        
+    g = Game()
+    g.start()
+   

@@ -4,9 +4,20 @@
 from __future__ import print_function
 import pygame, sys
 from pygame.locals import *
-import numpy as np
 import random, copy
 from datetime import datetime
+
+def sample(a, p):
+    """Step sample from a discrete distribution using CDF
+    """
+    n = len(a)
+    r = random.random()
+    total = 0           # range: [0,1]
+    for i in xrange(n):
+        total += p[i]
+        if total > r:
+            return a[i]
+    return a[i]
 
 class World(object):
 
@@ -32,9 +43,6 @@ class World(object):
         
         self.bundle_idx = 0
         
-        if not self.correlated:
-            self.static_animal_dist = self.generate_animal_dist().copy()
-
         pygame.mixer.music.load("sounds/background.mp3")
 
     def get_bundle_info(self, bundle_idx):
@@ -51,28 +59,6 @@ class World(object):
             animal_dist = self.static_animal_dist.copy()
             
         return bundle_length, mole_dist, animal_dist
-
-    def generate_animal_dist(self):
-        """Generate a random distribution of background animals.
-        """
-        animals_dist = {'cat':0}
-        iter = 0
-        total = 8
-        for animal in self.animals_dist.iterkeys():
-            iter += 1
-            if animal == 'cat': continue
-            if iter == 4: 
-                animals_dist[animal] = total
-                continue
-            if total == 0:
-                animals_dist[animal] = 0
-            
-            count =  np.random.randint(0,5)
-            while count > total:
-                count = np.random.randint(0,5)
-            animals_dist[animal] = count
-            total -= count
-        return animals_dist
 
     def add_mole(self):
         """Add the mole to the world.
@@ -139,7 +125,7 @@ class World(object):
 
         # output header
         header = ','.join(keys)
-        if file_pointer is None: print header
+        if file_pointer is None: print(header)
         else: file_pointer.write(header + '\n')
 
         # output each line
@@ -148,7 +134,7 @@ class World(object):
                                              h['at_hole'], h['hole_dist'], h['animals_dist'], 
                                              h['score'], h['run_length'],h['whack_coordinates'])
             if file_pointer: file_pointer.write(formatted_output + '\n')
-            else: print formatted_output
+            else: print(formatted_output)
     
     def add_entity(self, entity):
         
@@ -163,7 +149,7 @@ class World(object):
         for entity in [e for e in self.entities if e.type != 'mole']:
             entity.render(surface)
         self.mole.render(surface)
-
+        
 class GameEntity(pygame.sprite.Sprite):
     
     def __init__(self, world, name, image):
@@ -239,15 +225,13 @@ class Mole(GameEntity):
         self.current_hole_id = hole_id
         self.whacked = False
         self.begin_datetime = datetime.now()
-        if verbose: print 'mole moved to hole', self.current_hole_id
+        if verbose: print('mole moved to hole', self.current_hole_id)
         return
 
     def move_weighted(self, verbose = False):
         """Move the mole to a hole according the appearance probabilities.
         """
-        # numpy shortcut: 4 is equivalent to np.arange(4)
-        choices = dict(zip(xrange(4), self.world.hole_dist))
-        hole_id = weighted_sample(choices)
+        hole_id = sample(a = range(4), p = self.world.hole_dist)
         self.move_to_hole(hole_id, verbose)
 
     def show(self, time_passed):
