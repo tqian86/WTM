@@ -1,162 +1,114 @@
 #!/usr/bin/env python
 #-*- coding: utf-8 -*-
 
+from __future__ import print_function
 import pygame, sys
 from pygame.locals import *
 import numpy as np
 import random, copy
 from datetime import datetime
 
-def weighted_sample(choices):
-    total = sum(choices.itervalues())
-    r = np.random.uniform(0, total)
-    upto = 0
-    for c, w in choices.iteritems():
-        if upto + w > r: return c
-        upto += w
-    assert False, "Shouldn't get here"
-
 class World(object):
 
-    def __init__(self, alpha = 1, block = 1, correlated = True, previous_familiar=None,
-                 previous_contexts=None, previous_hole_dist=None, previous_dist_history=None):
-        '''Constructor for World'''
-
+    def __init__(self,
+                 dist_seq, # the sequence of distributions implemented by each bundle; N = # of bundles
+                 bundle_length_seq, # the length of each bundle; N = # of bundles
+                 all_mole_dists, # the probability distribution of mole positions; N = # of unique distributions
+                 all_animal_dists, # the probability distribution of background animals; N = # of unique animal distributions
+                 correlated = True):
+        """Constructor for the World.
+        """
         self.entities = pygame.sprite.LayeredUpdates()
-        self.distractors = pygame.sprite.LayeredUpdates()
+        self.animals = pygame.sprite.LayeredUpdates()
         self.background = pygame.image.load('images/background-hi.png').convert()
-        self.distractors_dist = {'cat': 0, 'rabbit': 0, 'snail': 0, 'hipo': 0, 'dinasor': 0}
         self.hole_positions = None
         self.hole_count = 4
-        self.block = block
         self.score = 0
         self.mole = None
+
         self.correlated = correlated
-
-        self.run_history = []
-        if block == 1:
-            self.context_choices = {'novel': alpha}
-            self.hole_dist = None
-            self.hole_dist_history = {}
-            self.is_familiar_hole_dist = False
-        elif block > 1:
-            if previous_contexts is None: raise NameError('running as a subsequent block but no previous contexts found!')
-            self.context_choices = previous_contexts
-            self.hole_dist = previous_hole_dist
-            self.hole_dist_history = previous_dist_history
-            self.is_familiar_hole_dist = previous_familiar
-
+        self.dist_seq, self.bundle_length_seq = dist_seq, bundle_length_seq
+        self.all_mole_dists, self.all_animal_dists = all_mole_dists, all_animal_dists
+        
+        self.bundle_idx = 0
+        
         if not self.correlated:
-            if block == 1:
-                self.static_distractor_dist = self.generate_distractor_dist().copy()
-            else:
-                self.static_distractor_dist = self.hole_dist_history.values()[0]['distractors_dist'].copy()
+            self.static_animal_dist = self.generate_animal_dist().copy()
 
-        self.set_hole_dist()
-        self.set_mole()
         pygame.mixer.music.load("sounds/background.mp3")
 
-    def set_hole_dist(self):
-        """Generate a random new distribution for the appearance
-        probability of the mole.
+    def get_bundle_info(self, bundle_idx):
+        """Given a bundle index, retrieve its length, the associated distribution of mole positions,
+        and its distribution of background animals.
         """
-        available_choices = copy.deepcopy(self.context_choices)
-        if self.hole_dist is not None: del available_choices[str(self.hole_dist)]
-        new_context = weighted_sample(available_choices)
+        dist_idx = self.dist_seq[bundle_idx]
+        bundle_length = self.bundle_length_seq[bundle_idx]
+        mole_dist = self.all_mole_dists[dist_idx]
         
-        if new_context != 'novel':
-            self.is_familiar_hole_dist = True
-            self.context_choices[new_context] += 1
-
-            self.hole_dist = copy.deepcopy(self.hole_dist_history[new_context]['hole_dist'])
-            self.distractors_dist = self.hole_dist_history[new_context]['distractors_dist'].copy()
-            self.set_distractors()
+        if self.correlated:
+            animal_dist = self.all_animal_dists[dist_idx].copy()
         else:
-            self.hole_dist = np.round(np.random.dirichlet((1,1,1,1)), 2)
-            if self.correlated:
-                new_distractor_dist = self.generate_distractor_dist()
+            animal_dist = self.static_animal_dist.copy()
             
-                while self.duplicate_distractor_dist(new_distractor_dist):
-                    #print 'duplicate detected', new_distractor_dist
-                    new_distractor_dist = self.generate_distractor_dist()
-                    #print 'Is the new visual context still a duplicate?', self.duplicate_distractor_dist(new_distractor_dist)
-                           
-                self.distractors_dist = new_distractor_dist.copy()
-                self.set_distractors()
-            else:
-                self.distractors_dist = self.static_distractor_dist.copy()
-                self.set_distractors()
+        return bundle_length, mole_dist, animal_dist
 
-            self.is_familiar_hole_dist = False
-            self.context_choices[str(self.hole_dist)] = 1
-            self.hole_dist_history[str(self.hole_dist)] = {'hole_dist': copy.deepcopy(self.hole_dist),
-                                                           'distractors_dist': {'cat': 0,
-                                                                                'rabbit': copy.deepcopy(self.distractors_dist['rabbit']),
-                                                                                'snail': copy.deepcopy(self.distractors_dist['snail']),
-                                                                                'hipo': copy.deepcopy(self.distractors_dist['hipo']),
-                                                                                'dinasor': copy.deepcopy(self.distractors_dist['dinasor'])}}
-        return
-
-    def generate_distractor_dist(self):
-        
-        distractors_dist = {'cat':0}
+    def generate_animal_dist(self):
+        """Generate a random distribution of background animals.
+        """
+        animals_dist = {'cat':0}
         iter = 0
         total = 8
-        for animal in self.distractors_dist.iterkeys():
+        for animal in self.animals_dist.iterkeys():
             iter += 1
             if animal == 'cat': continue
             if iter == 4: 
-                distractors_dist[animal] = total
+                animals_dist[animal] = total
                 continue
             if total == 0:
-                distractors_dist[animal] = 0
+                animals_dist[animal] = 0
             
             count =  np.random.randint(0,5)
             while count > total:
                 count = np.random.randint(0,5)
-            distractors_dist[animal] = count
+            animals_dist[animal] = count
             total -= count
-        return distractors_dist
+        return animals_dist
 
-    def duplicate_distractor_dist(self, dist):
-
-        current_history = copy.deepcopy(self.hole_dist_history)
-        for v in current_history.values():
-            hist_d_dist = copy.deepcopy(v['distractors_dist'])
-            if dist['cat'] == 0 and \
-                    dist['rabbit'] == hist_d_dist['rabbit'] and \
-                    dist['hipo'] == hist_d_dist['hipo'] and \
-                    dist['snail'] == hist_d_dist['snail'] and \
-                    dist['dinasor'] == hist_d_dist['dinasor']:
-                return True
-        return False
-
-    def set_mole(self):
+    def add_mole(self):
         """Add the mole to the world.
         """
-        mole = Mole(self)
+        mole = Mole(world = self)
         mole.scale_image(.15)
         self.add_entity(mole)
         
-    def set_distractors(self):
-        """Add distractors to the world.
+    def add_animals(self):
+        """Add animals to the world.
         """
-        # add distractors
-        distractor_classes = {'cat': Cat, 'dinasor': Dinasor,
-                              'hipo': Hipo, 'rabbit': Rabbit,
-                              'snail': Snail}
+        # add animals
+        animal_classes = {'cat': Cat, 'dinasor': Dinasor,
+                          'hippo': Hippo, 'rabbit': Rabbit,
+                          'snail': Snail}
 
+        # empty existing animals
+        self.entities.remove(self.animals.sprites())
+        self.animals.empty()
 
-        # empty existing distractors
-        self.entities.remove(self.distractors.sprites())
-        self.distractors.empty()
-
-        # add new distractors
-        for distractor, count in self.distractors_dist.iteritems():
+        # add new animals
+        for animal, count in self.animals_dist.iteritems():
             for i in xrange(count):
-                d = distractor_classes[distractor](self)
+                d = animal_classes[animal](self)
                 d.scale_image(.115)
                 self.add_entity(d)
+
+    def add_scorebar(self):
+        """Add the score bar to the world.
+        """
+        return
+
+    def add_tree(self):
+        """Add the tree.
+        """
+        return
 
     def record(self, rt, trial_no, run_length):
         
@@ -167,7 +119,7 @@ class World(object):
                 'familiar': self.is_familiar_hole_dist,
                 'at_hole': self.mole.current_hole_id,
                 'hole_dist': self.hole_dist,
-                'distractors_dist': copy.deepcopy(self.distractors_dist),
+                'animals_dist': copy.deepcopy(self.animals_dist),
                 'score': self.score,
                 'run_length': run_length,
                 'whack_coordinates': self.mole.rel_whack_coordinates})
@@ -176,8 +128,8 @@ class World(object):
         
         # string formatting
         keys = ['block', 'trial', 'rt', 'familiar', 'pos', 'p0', 'p1', 'p2', 'p3',
-                'n.cat', 'n.hipo', 'n.rabbit', 'n.snail', 'n.dinasor', 'score', 'run.length', 'whack.x', 'whack.y']
-        output = '{0},{1},{2},{3},{4},{5[0]},{5[1]},{5[2]},{5[3]},{6[cat]},{6[hipo]},{6[rabbit]},{6[snail]},{6[dinasor]},{7},{8},{9[0]},{9[1]}'
+                'n.cat', 'n.hippo', 'n.rabbit', 'n.snail', 'n.dinasor', 'score', 'run.length', 'whack.x', 'whack.y']
+        output = '{0},{1},{2},{3},{4},{5[0]},{5[1]},{5[2]},{5[3]},{6[cat]},{6[hippo]},{6[rabbit]},{6[snail]},{6[dinasor]},{7},{8},{9[0]},{9[1]}'
 
         # output header
         header = ','.join(keys)
@@ -187,7 +139,7 @@ class World(object):
         # output each line
         for h in self.run_history:
             formatted_output = output.format(h['block'], h['trial'], h['rt'], h['familiar'], 
-                                             h['at_hole'], h['hole_dist'], h['distractors_dist'], 
+                                             h['at_hole'], h['hole_dist'], h['animals_dist'], 
                                              h['score'], h['run_length'],h['whack_coordinates'])
             if file_pointer: file_pointer.write(formatted_output + '\n')
             else: print formatted_output
@@ -195,11 +147,12 @@ class World(object):
     def add_entity(self, entity):
         
         if entity.type == 'mole': self.mole = entity
-        if entity.type == 'distractor': self.distractors.add(entity)
+        if entity.type == 'animal': self.animals.add(entity)
         self.entities.add(entity)
 
     def render(self, surface):
-        '''Render the world on a given surface'''
+        """Render the world on a given surface.
+        """
         surface.blit(self.background, (0,0))
         for entity in [e for e in self.entities if e.type != 'mole']:
             entity.render(surface)
@@ -385,14 +338,14 @@ class Mole(GameEntity):
         drawable = Rect(0, 0, mole_w, max(hole_y + 25 - mole_y, 0))
         surface.blit(self.image, dest=(mole_x, mole_y), area=drawable)
     
-class Distractor(GameEntity):
+class Animal(GameEntity):
     
     def __init__(self, world, name, image):
         GameEntity.__init__(self, world, name, image)
-        self.type = 'distractor'
+        self.type = 'animal'
 
     def auto_location(self):
-        """Move the distractor to a random new position in the world.
+        """Move the animal to a random new position in the world.
         """
         c = True
         while c:
@@ -404,35 +357,35 @@ class Distractor(GameEntity):
             c = pygame.sprite.spritecollide(self, self.world.entities, False)
             c.remove(self)
 
-class Cat(Distractor):
+class Cat(Animal):
     
     def __init__(self, world):
         cat_image = pygame.image.load('images/cat.png').convert_alpha()
-        Distractor.__init__(self, world, 'cat', cat_image)
+        Animal.__init__(self, world, 'cat', cat_image)
 
-class Dinasor(Distractor):
+class Dinasor(Animal):
     
     def __init__(self, world):
         dinasor_image = pygame.image.load('images/dinasor.png').convert_alpha()
-        Distractor.__init__(self, world, 'dinasor', dinasor_image)
+        Animal.__init__(self, world, 'dinasor', dinasor_image)
         
-class Hipo(Distractor):
+class Hippo(Animal):
     
     def __init__(self, world):
-        hipo_image = pygame.image.load('images/hipo.png').convert_alpha()
-        Distractor.__init__(self, world, 'hipo', hipo_image)
+        hippo_image = pygame.image.load('images/hippo.png').convert_alpha()
+        Animal.__init__(self, world, 'hippo', hippo_image)
 
-class Rabbit(Distractor):
+class Rabbit(Animal):
     
     def __init__(self, world):
         rabbit_image = pygame.image.load('images/rabbit.png').convert_alpha()
-        Distractor.__init__(self, world, 'rabbit', rabbit_image)
+        Animal.__init__(self, world, 'rabbit', rabbit_image)
 
-class Snail(Distractor):
+class Snail(Animal):
 
     def __init__(self, world):
         snail_image = pygame.image.load('images/snail.png').convert_alpha()
-        Distractor.__init__(self, world, 'snail', snail_image)
+        Animal.__init__(self, world, 'snail', snail_image)
 
 class ScoreBar(GameEntity):
 
