@@ -21,57 +21,32 @@ def sample(a, p):
 
 class World(object):
 
-    def __init__(self,
-                 dist_seq, # the sequence of distributions implemented by each bundle; N = # of bundles
-                 bundle_length_seq, # the length of each bundle; N = # of bundles
-                 all_mole_dists, # the probability distribution of mole positions; N = # of unique distributions
-                 all_animal_dists, # the probability distribution of background animals; N = # of unique animal distributions
-                 correlated = True):
+    def __init__(self):
         """Constructor for the World.
         """
         self.entities = pygame.sprite.LayeredUpdates()
         self.animals = pygame.sprite.LayeredUpdates()
         self.background = pygame.image.load('images/background-hi.png').convert()
         self.hole_positions = None
-        self.hole_count = 4
         self.score = 0
         self.mole = None
-
-        self.correlated = correlated
-        self.dist_seq, self.bundle_length_seq = dist_seq, bundle_length_seq
-        self.all_mole_dists, self.all_animal_dists = all_mole_dists, all_animal_dists
-        
-        self.bundle_idx = 0
+        self.mole_dist = None
         
         pygame.mixer.music.load("sounds/background.mp3")
 
-    def get_bundle_info(self, bundle_idx):
-        """Given a bundle index, retrieve its length, the associated distribution of mole positions,
-        and its distribution of background animals.
-        """
-        dist_idx = self.dist_seq[bundle_idx]
-        bundle_length = self.bundle_length_seq[bundle_idx]
-        mole_dist = self.all_mole_dists[dist_idx]
-        
-        if self.correlated:
-            animal_dist = self.all_animal_dists[dist_idx].copy()
-        else:
-            animal_dist = self.static_animal_dist.copy()
-            
-        return bundle_length, mole_dist, animal_dist
-
-    def add_mole(self):
+    def add_mole(self, mole_dist):
         """Add the mole to the world.
         """
         mole = Mole(world = self)
         mole.scale_image(.15)
         self.add_entity(mole)
+        self.mole_dist = mole_dist
         
-    def add_animals(self):
+    def add_animals(self, animal_dist):
         """Add animals to the world.
         """
         # add animals
-        animal_classes = {'cat': Cat, 'dinasor': Dinasor,
+        animal_classes = {'cat': Cat, 'dinosaur': Dinosaur,
                           'hippo': Hippo, 'rabbit': Rabbit,
                           'snail': Snail}
 
@@ -80,7 +55,7 @@ class World(object):
         self.animals.empty()
 
         # add new animals
-        for animal, count in self.animals_dist.iteritems():
+        for animal, count in animal_dist.iteritems():
             for i in xrange(count):
                 d = animal_classes[animal](self)
                 d.scale_image(.115)
@@ -101,16 +76,16 @@ class World(object):
         self.add_entity(tree)
         
         return
-
+        
     def record(self, rt, trial_no, run_length):
         
         self.run_history.append({
                 'block': self.block,
                 'trial': trial_no,
                 'rt': rt,
-                'familiar': self.is_familiar_hole_dist,
+                'familiar': self.is_familiar_mole_dist,
                 'at_hole': self.mole.current_hole_id,
-                'hole_dist': self.hole_dist,
+                'mole_dist': self.mole_dist,
                 'animals_dist': copy.deepcopy(self.animals_dist),
                 'score': self.score,
                 'run_length': run_length,
@@ -120,8 +95,8 @@ class World(object):
         
         # string formatting
         keys = ['block', 'trial', 'rt', 'familiar', 'pos', 'p0', 'p1', 'p2', 'p3',
-                'n.cat', 'n.hippo', 'n.rabbit', 'n.snail', 'n.dinasor', 'score', 'run.length', 'whack.x', 'whack.y']
-        output = '{0},{1},{2},{3},{4},{5[0]},{5[1]},{5[2]},{5[3]},{6[cat]},{6[hippo]},{6[rabbit]},{6[snail]},{6[dinasor]},{7},{8},{9[0]},{9[1]}'
+                'n.cat', 'n.hippo', 'n.rabbit', 'n.snail', 'n.dinosaur', 'score', 'run.length', 'whack.x', 'whack.y']
+        output = '{0},{1},{2},{3},{4},{5[0]},{5[1]},{5[2]},{5[3]},{6[cat]},{6[hippo]},{6[rabbit]},{6[snail]},{6[dinosaur]},{7},{8},{9[0]},{9[1]}'
 
         # output header
         header = ','.join(keys)
@@ -131,7 +106,7 @@ class World(object):
         # output each line
         for h in self.run_history:
             formatted_output = output.format(h['block'], h['trial'], h['rt'], h['familiar'], 
-                                             h['at_hole'], h['hole_dist'], h['animals_dist'], 
+                                             h['at_hole'], h['mole_dist'], h['animals_dist'], 
                                              h['score'], h['run_length'],h['whack_coordinates'])
             if file_pointer: file_pointer.write(formatted_output + '\n')
             else: print(formatted_output)
@@ -231,7 +206,7 @@ class Mole(GameEntity):
     def move_weighted(self, verbose = False):
         """Move the mole to a hole according the appearance probabilities.
         """
-        hole_id = sample(a = range(4), p = self.world.hole_dist)
+        hole_id = sample(a = range(4), p = self.world.mole_dist)
         self.move_to_hole(hole_id, verbose)
 
     def show(self, time_passed):
@@ -271,7 +246,7 @@ class Mole(GameEntity):
         if self.rect[1] - 25 >= self.world.hole_positions[self.current_hole_id][1]:
             self.status = 'STILL'
             self.visible = False
-            self.moved += 1
+            #self.moved += 1
         else:
             self.status = 'MOVE_DOWN'
             seconds = time_passed / 1000.
@@ -341,7 +316,7 @@ class Animal(GameEntity):
         while c:
             w, h = self.image.get_size()
             min_x, min_y, max_x, max_y = (0, 400, 1000-w-10, 734-h-10)
-            x, y = (np.random.randint(min_x, max_x+1), np.random.randint(min_y,max_y+1))
+            x, y = (random.randint(min_x, max_x), random.randint(min_y,max_y))
         
             self.rect = Rect(x, y, w, h)
             c = pygame.sprite.spritecollide(self, self.world.entities, False)
@@ -353,11 +328,11 @@ class Cat(Animal):
         cat_image = pygame.image.load('images/cat.png').convert_alpha()
         Animal.__init__(self, world, 'cat', cat_image)
 
-class Dinasor(Animal):
+class Dinosaur(Animal):
     
     def __init__(self, world):
-        dinasor_image = pygame.image.load('images/dinasor.png').convert_alpha()
-        Animal.__init__(self, world, 'dinasor', dinasor_image)
+        dinosaur_image = pygame.image.load('images/dinosaur.png').convert_alpha()
+        Animal.__init__(self, world, 'dinosaur', dinosaur_image)
         
 class Hippo(Animal):
     
