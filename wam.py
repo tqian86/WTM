@@ -5,7 +5,7 @@ from __future__ import print_function
 import pygame, sys
 from pygame.locals import *
 import random, copy
-from datetime import datetime
+from time import time
 
 def sample(a, p):
     """Step sample from a discrete distribution using CDF
@@ -77,40 +77,6 @@ class World(object):
         
         return
         
-    def record(self, rt, trial_no, run_length):
-        
-        self.run_history.append({
-                'block': self.block,
-                'trial': trial_no,
-                'rt': rt,
-                'familiar': self.is_familiar_mole_dist,
-                'at_hole': self.mole.current_hole_id,
-                'mole_dist': self.mole_dist,
-                'animals_dist': copy.deepcopy(self.animals_dist),
-                'score': self.score,
-                'run_length': run_length,
-                'whack_coordinates': self.mole.rel_whack_coordinates})
-        
-    def print_history(self, file_pointer = None):
-        
-        # string formatting
-        keys = ['block', 'trial', 'rt', 'familiar', 'pos', 'p0', 'p1', 'p2', 'p3',
-                'n.cat', 'n.hippo', 'n.rabbit', 'n.snail', 'n.dinosaur', 'score', 'run.length', 'whack.x', 'whack.y']
-        output = '{0},{1},{2},{3},{4},{5[0]},{5[1]},{5[2]},{5[3]},{6[cat]},{6[hippo]},{6[rabbit]},{6[snail]},{6[dinosaur]},{7},{8},{9[0]},{9[1]}'
-
-        # output header
-        header = ','.join(keys)
-        if file_pointer is None: print(header)
-        else: file_pointer.write(header + '\n')
-
-        # output each line
-        for h in self.run_history:
-            formatted_output = output.format(h['block'], h['trial'], h['rt'], h['familiar'], 
-                                             h['at_hole'], h['mole_dist'], h['animals_dist'], 
-                                             h['score'], h['run_length'],h['whack_coordinates'])
-            if file_pointer: file_pointer.write(formatted_output + '\n')
-            else: print(formatted_output)
-    
     def add_entity(self, entity):
         
         if entity.type == 'mole': self.mole = entity
@@ -170,7 +136,8 @@ class Hole(GameEntity):
 class Mole(GameEntity):
 
     def __init__(self, world):
-        
+        """Initializing a mole.
+        """        
         mole_image = pygame.image.load('images/mole.png').convert_alpha()
         GameEntity.__init__(self, world, 'mole', mole_image)
         self.type = 'mole'
@@ -190,8 +157,8 @@ class Mole(GameEntity):
         self.whacked = False
         self.rel_whack_coordinates = (None, None)
         self.bang_pos = (0,0)
-        self.begin_datetime = None
-        self.end_datetime = None
+        self.begin_time = None
+        self.end_time = None
 
     def move_to_hole(self, hole_id, verbose = False):
         if self.visible: return
@@ -199,8 +166,8 @@ class Mole(GameEntity):
         self.rect[1] = self.world.hole_positions[hole_id][1] + 25
         self.current_hole_id = hole_id
         self.whacked = False
-        self.begin_datetime = datetime.now()
         if verbose: print('mole moved to hole', self.current_hole_id)
+        self.begin_time = time()
         return
 
     def move_weighted(self, verbose = False):
@@ -265,7 +232,7 @@ class Mole(GameEntity):
         if self.whacked:
             self.locked = self.whacked
             self.status = 'STILL'
-            self.end_datetime = datetime.now()
+            self.end_time = time()
 
             self.rel_whack_coordinates = (mouse_x - mole_x, mouse_y - mole_y)
             bang_center = (mouse_x, mouse_y)# (mole_x + mole_w / 2, mole_y + mole_h / 2)
@@ -286,9 +253,9 @@ class Mole(GameEntity):
         Return none if player missed.
         """
         if self.whacked: 
-            try: 
-                td = self.end_datetime - self.begin_datetime
-                alive_time = round(td.seconds * 1000.0 + td.microseconds / 1000.0)
+            try:
+                td = self.end_time - self.begin_time
+                alive_time = int(round(td * 1000))
             except:
                 alive_time = None
             return alive_time
