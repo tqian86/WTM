@@ -315,10 +315,8 @@ class Game(object):
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Run the Whack-The-Mole experiment.')
-    parser.add_argument('--subj', default = 'unknown', type=str,
-                        help='Specify a Subject ID for traceable output data')
-    parser.add_argument('--mumble', action='store_true',
-                        help='Also prints out results to the screen. Note that this information is sent to standard error so it cannot be captured by redirecting using >')
+    parser.add_argument('--subj', default = 'unknown', type=str, help='Specify a Subject ID for traceable output data')
+    parser.add_argument('--mumble', action='store_true', help='Also prints out results to the screen. Note that this information is sent to standard error so it cannot be captured by redirecting using >')
     args = parser.parse_args()
 
     pygame.init()
