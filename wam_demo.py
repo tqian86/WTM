@@ -330,9 +330,9 @@ if __name__ == '__main__':
     # the (mole dist, animal dist) pair sequence used in each block
     # instead of *3, which says 3 three blocks of the same sequence,
     # you can also list all blocks manually, if variation between blocks is needed
-    # e.g., DIST_SEQ = [[(1,0), (2,0), (3,0)], [(2,0), (3,0), (1,0)]]
+    # e.g., DIST_SEQ = [[(0,0), (1,0), (2,0)], [(1,0), (2,0), (0,0)]] - everything counts from 0
     # PAY SPECIAL ATTENTION TO THE DOUBLE BRACKETS - we want a nested list, each child list represents a block
-    DIST_SEQ = [[(1,0), (2,0), (3,0), (1,0), (4,0), (2,0), (4,0), (3,0), (2,0), (1,0), (3,0), (4,0)]] * 3
+    DIST_SEQ = [[(0,0), (1,0), (2,0), (0,0), (3,0), (1,0), (3,0), (2,0), (1,0), (0,0), (2,0), (3,0)]] * 3
 
     # the same applies to the bundle length sequence
     BUNDLE_LENGTH_SEQ = [[20, 25, 30, 25, 20, 20, 30, 20, 30, 30, 25, 25]] * 3 # block 1, indices to ALL_ANIMAL_DISTS
