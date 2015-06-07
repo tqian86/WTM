@@ -108,6 +108,7 @@ class Menu:
             if width > self.menu_width:
                     self.menu_width = width
             self.menu_height += height
+
         x = self.dest_surface.get_rect().centerx - self.menu_width / 2
         y = self.dest_surface.get_rect().centery - self.menu_height / 2
         mx, my = self.pozycja_wklejenia

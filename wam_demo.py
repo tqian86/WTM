@@ -4,6 +4,7 @@
 from __future__ import print_function
 from wam import *
 from menu import *
+from slidemenu.slidemenu import *
 import sys, argparse, gzip
 from datetime import datetime
 
@@ -48,9 +49,9 @@ class Game(object):
         self.fullscreen = False
 
         # set up menu
-        self.menu = Menu()
-        self.menu.set_fontsize(44)
-        self.menu.init(['Warm up', 'Start Game', 'Exit'], self.screen)
+        #self.menu = Menu()
+        #self.menu.set_fontsize(44)
+        #self.menu.init(['Warm up', 'Start Game', 'Exit'], self.screen)
 
         # set up the world 
         world = World()
@@ -92,40 +93,33 @@ class Game(object):
         """Start the game.
         """
         while True:
-
-            # Draw menu if the game is in menu state
-            if self.state == Game.S_MENU:
-                self.screen.fill((51,51,51))
-                self.menu.draw()
-                pygame.mixer.music.stop()
-
+            self.screen.fill((0,0,0))
+            pygame.display.update()
+            pygame.mixer.music.stop()
+            resp = menu(['Warm up',
+                         'Start Game',
+                         'Toggle fullscreen',
+                         'Exit'],
+                        color1     = (255,80,40),
+                        light      = 9,
+                        tooltiptime= 1000,
+                        #cursor_img = image.load('mouse.png'),
+                        hotspot    = (38,15))
+                    
             # React to user choices at the menu screen
-            e = pygame.event.wait()
-            if e.type == KEYDOWN:
-                if e.key == K_f:
-                    self.fullscreen = not self.fullscreen
-                    if self.fullscreen:
-                        self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, FULLSCREEN, 32)
-                    else:
-                        self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, 0, 32)
-                elif e.key == K_UP:
-                    self.menu.draw(-1)
-                elif e.key == K_DOWN:
-                    self.menu.draw(1)
-                elif e.key == K_RETURN:
-                    choice = self.menu.get_position()
-                    if choice == Game.M_START_GAME:
-                        for block in xrange(self.num_of_blocks):
-                            self.whack_session(block = block)
-                            self.pause_game(block = block)
-                        self.state = Game.S_MENU
-                    elif choice == Game.M_WARM_UP:
-                        self.whack_session(block = 'WARM_UP')
-                        self.state = Game.S_MENU
-                    elif choice == Game.M_EXIT:
-                        return
-
-            if e.type == QUIT:
+            if resp[0] == 'Toggle fullscreen':
+                self.fullscreen = not self.fullscreen
+                if self.fullscreen:
+                    self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, FULLSCREEN, 32)
+                else:
+                    self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, 0, 32)
+            elif resp[0] == 'Start Game':
+                for block in xrange(self.num_of_blocks):
+                    self.whack_session(block = block)
+                    self.pause_game(block = block)
+            elif resp[0] == 'Warm up':
+                self.whack_session(block = 'WARM_UP')
+            elif resp[0] == 'Exit':
                 return
 
             pygame.display.update()
