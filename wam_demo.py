@@ -10,8 +10,6 @@ from datetime import datetime
 
 class Game(object):
     
-    S_MENU = 0
-    M_WARM_UP, M_START_GAME, M_EXIT = (0, 1, 2)
     SCREEN_SIZE = (1000, 734)
     WARM_UP_TRIAL_NO = 20
 
@@ -45,13 +43,7 @@ class Game(object):
             
         # set up screen 
         self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, 0, 32)
-        self.state = Game.S_MENU
         self.fullscreen = False
-
-        # set up menu
-        #self.menu = Menu()
-        #self.menu.set_fontsize(44)
-        #self.menu.init(['Warm up', 'Start Game', 'Exit'], self.screen)
 
         # set up the world 
         world = World()
@@ -96,10 +88,7 @@ class Game(object):
             self.screen.fill((0,0,0))
             pygame.display.update()
             pygame.mixer.music.stop()
-            resp = menu(['Warm up',
-                         'Start Game',
-                         'Toggle fullscreen',
-                         'Exit'],
+            resp = menu(['Warm up', 'Start Game', 'Toggle fullscreen', 'Exit'],
                         color1     = (255,80,40),
                         light      = 9,
                         tooltiptime= 1000,
