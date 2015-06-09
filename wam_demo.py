@@ -134,6 +134,9 @@ class Game(object):
         font = pygame.font.Font("data/fof.ttf", 80);
         text_surface = font.render(message, True, (0, 0, 0))
 
+        # set up clock
+        clock = pygame.time.Clock()
+        
         for i in xrange(3):
             self.screen.fill((245,245,245))
             self.screen.blit(text_surface, (350,280))
@@ -141,15 +144,15 @@ class Game(object):
             self.screen.blit(countdown_surface, (500,430))
             pygame.mixer.Sound('sounds/ticking.wav').play()
             pygame.display.update()
-            pygame.time.wait(1000)
+            timer = 0
+            while timer < 1000:
+                pygame.event.pump()
+                timer += clock.tick(10)
 
         # begin session
         pygame.mouse.set_visible(True)
         pygame.mixer.music.play()
 
-        # set up clock
-        clock = pygame.time.Clock()
-        
         # The difference between a warm up session and a regular session
         # is taken care of by the start() method
         if block == 'WARM_UP':
@@ -255,9 +258,10 @@ class Game(object):
             pygame.mixer.music.stop()
             pygame.mouse.set_visible(True)
 
+            pygame.display.update()
             # mandatory break of 2 minutes
             while timer < 1000 * 60 * 2:
-                pygame.display.update()
+                pygame.event.pump()
                 timer += clock.tick(5)
 
             # after the break, prompt user to continue the game
