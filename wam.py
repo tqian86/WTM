@@ -37,9 +37,11 @@ class World(object):
     def add_mole(self, mole_dist):
         """Add the mole to the world.
         """
-        mole = Mole(world = self)
-        mole.scale_image(.15)
-        self.add_entity(mole)
+        if self.mole is None:
+            mole = Mole(world = self)
+            mole.scale_image(.15)
+            self.add_entity(mole)
+        print(self.entities)
         self.mole_dist = mole_dist
         
     def add_animals(self, animal_dist):

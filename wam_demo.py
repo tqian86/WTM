@@ -161,8 +161,6 @@ class Game(object):
         
         # start the trials
         for bundle_idx in bundle_range:
-            try: self.dest.flush()
-            except: pass
             bundle_length, mole_dist, animal_dist, mole_dist_idx, animal_dist_idx = self.get_bundle_info(block, bundle_idx)
             # add statistics
             try: self.dist_history[mole_dist_idx] += 1
@@ -233,6 +231,12 @@ class Game(object):
                 block_trial += 1
                 self.session_trial += 1
 
+            # flush out the result at the end of a bundle
+            try: self.dest.flush()
+            except: pass
+
+                
+                
     def pause_game(self, block):
         """Pause or end the game. If all blocks are presented the game will end.
         Otherwise, display a score and force a break.
