@@ -41,7 +41,6 @@ class World(object):
             mole = Mole(world = self)
             mole.scale_image(.15)
             self.add_entity(mole)
-        print(self.entities)
         self.mole_dist = mole_dist
         
     def add_animals(self, animal_dist):
