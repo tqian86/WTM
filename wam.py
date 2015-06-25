@@ -151,7 +151,7 @@ class Mole(GameEntity):
         self.locked = False
         self.locked_duration = 0
         self.max_locked_duration = 2000
-        self.hit_locked_duration = 2000
+        self.hit_locked_duration = 200
         self.bang_image = pygame.image.load('images/bang.png').convert_alpha()
         self.bang_image = scale_surface(self.bang_image, 0.5)
         self.bang_sound = pygame.mixer.Sound('sounds/whack.aif')
