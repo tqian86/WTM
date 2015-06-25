@@ -7,6 +7,7 @@ from menu import *
 from slidemenu.slidemenu import *
 import sys, argparse, gzip
 from datetime import datetime
+from time import time
 
 class Game(object):
     
@@ -45,7 +46,7 @@ class Game(object):
         self.screen = pygame.display.set_mode(Game.SCREEN_SIZE, 0, 32)
         self.fullscreen = False
 
-        # set up the world 
+        # set up the world
         world = World()
         world.add_tree()
         world.add_scorebar()
@@ -147,7 +148,7 @@ class Game(object):
             timer = 0
             while timer < 1000:
                 pygame.event.pump()
-                timer += clock.tick(10)
+                timer += clock.tick(60)
 
         # begin session
         pygame.mouse.set_visible(True)
@@ -176,9 +177,12 @@ class Game(object):
             self.world.add_mole(mole_dist)
             self.world.add_animals(animal_dist)
 
+            # reset clock
+            clock.tick()
             # loop over all bundle trials
-            for bundle_trial in range(bundle_length): 
+            for bundle_trial in range(bundle_length):
                 while True:
+                    time_passed = clock.tick(60)
                     for event in pygame.event.get():
                         if event.type == KEYDOWN:
                             if event.key == K_ESCAPE:
@@ -194,12 +198,11 @@ class Game(object):
                             mouse_x, mouse_y = pygame.mouse.get_pos()
                             self.world.mole.get_whacked(mouse_x, mouse_y)
 
-                    time_passed = clock.tick(60)
                 
                     if self.world.mole.moveable():
                         self.rearrange_animals()
                         self.world.mole.move_weighted(verbose = False)
-        
+
                     self.world.mole.show(time_passed)
                     self.world.mole.wait(time_passed)
                     self.world.mole.hide(time_passed)
