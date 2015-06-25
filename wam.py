@@ -231,6 +231,7 @@ class Mole(GameEntity):
         self.whacked = mouse_x > mole_x and mouse_x < mole_x + mole_w and mouse_y > mole_y and mouse_y < mole_y + mole_h
         
         if self.whacked:
+            self.bang_sound.play()
             self.locked = self.whacked
             self.status = 'STILL'
             self.end_time = time()
@@ -240,7 +241,6 @@ class Mole(GameEntity):
             bang_size = self.bang_image.get_size()
             self.bang_pos = (bang_center[0] - bang_size[0] / 2, bang_center[1] - bang_size[1] / 2)
 
-            self.bang_sound.play()
             self.world.score += int(5.0 * 1000.0 / float(self.get_alive_time()))
 
             return self.whacked
