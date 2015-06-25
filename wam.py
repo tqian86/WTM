@@ -151,7 +151,7 @@ class Mole(GameEntity):
         self.locked = False
         self.locked_duration = 0
         self.max_locked_duration = 2000
-        self.hit_locked_duration = 200
+        self.hit_locked_duration = 300
         self.bang_image = pygame.image.load('images/bang.png').convert_alpha()
         self.bang_image = scale_surface(self.bang_image, 0.5)
         self.bang_sound = pygame.mixer.Sound('sounds/whack.aif')
@@ -201,7 +201,7 @@ class Mole(GameEntity):
         else: max_duration = self.hit_locked_duration
 
         self.locked_duration += time_passed
-        
+
         if self.locked_duration > max_duration:
             self.locked = False
             self.locked_duration = 0
@@ -231,10 +231,11 @@ class Mole(GameEntity):
         self.whacked = mouse_x > mole_x and mouse_x < mole_x + mole_w and mouse_y > mole_y and mouse_y < mole_y + mole_h
         
         if self.whacked:
+            self.end_time = time()
             self.bang_sound.play()
+            self.locked_duration = 0
             self.locked = self.whacked
             self.status = 'STILL'
-            self.end_time = time()
 
             self.rel_whack_coordinates = (mouse_x - mole_x, mouse_y - mole_y)
             bang_center = (mouse_x, mouse_y)# (mole_x + mole_w / 2, mole_y + mole_h / 2)
