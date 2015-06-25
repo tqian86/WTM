@@ -182,7 +182,6 @@ class Game(object):
             # loop over all bundle trials
             for bundle_trial in range(bundle_length):
                 while True:
-                    time_passed = clock.tick(60)
                     for event in pygame.event.get():
                         if event.type == KEYDOWN:
                             if event.key == K_ESCAPE:
@@ -203,6 +202,7 @@ class Game(object):
                         self.rearrange_animals()
                         self.world.mole.move_weighted(verbose = False)
 
+                    time_passed = clock.tick(60)
                     self.world.mole.show(time_passed)
                     self.world.mole.wait(time_passed)
                     self.world.mole.hide(time_passed)
