@@ -4,7 +4,7 @@
 from __future__ import print_function
 from wam import *
 from slidemenu.slidemenu import *
-import sys, argparse, gzip
+import sys, argparse, gzip, random
 from datetime import datetime
 from time import time
 
@@ -19,6 +19,7 @@ class Game(object):
                  bundle_length_seq, # the length of each bundle; N = # of bundles
                  all_mole_dists, # the probability distribution of mole positions; N = # of unique distributions
                  all_animal_dists, # the probability distribution of background animals; N = # of unique animal distributions
+                 exact_proportion,
                  hole_positions = [(320,450), (300, 600), (700, 500), (680, 650)],
                  mumble = False, compress = False):
         """Initialize a game with a given world.
@@ -28,6 +29,7 @@ class Game(object):
         assert len(all_mole_dists) == len(all_animal_dists)
         self.dist_seq, self.bundle_length_seq = dist_seq, bundle_length_seq
         self.all_mole_dists, self.all_animal_dists = all_mole_dists, all_animal_dists
+        self.exact_proportion = exact_proportion
         self.num_of_blocks = len(self.dist_seq)
         self.session_trial = 0
 
@@ -176,6 +178,12 @@ class Game(object):
             self.world.add_mole(mole_dist)
             self.world.add_animals(animal_dist)
 
+            # generate the exact proportion list
+            location_list = []
+            for loc_idx in xrange(4):
+                location_list.extend([loc_idx] * int(bundle_length * mole_dist[loc_idx]))
+            random.shuffle(location_list)
+            
             # reset clock
             clock.tick()
             # loop over all bundle trials
@@ -199,7 +207,10 @@ class Game(object):
                 
                     if self.world.mole.moveable():
                         self.rearrange_animals()
-                        self.world.mole.move_weighted(verbose = False)
+                        if self.exact_proportion:
+                            self.world.mole.move_to_hole(location_list[bundle_trial])
+                        else:
+                            self.world.mole.move_weighted(verbose = False)
 
                     time_passed = clock.tick(60)
                     self.world.mole.show(time_passed)
@@ -328,7 +339,11 @@ if __name__ == '__main__':
     DIST_SEQ = [[(0,0), (1,0), (2,0), (0,0), (3,0), (1,0), (3,0), (2,0), (1,0), (0,0), (2,0), (3,0)]] * 3
 
     # the same applies to the bundle length sequence
-    BUNDLE_LENGTH_SEQ = [[20, 25, 30, 25, 20, 20, 30, 20, 30, 30, 25, 25]] * 3 # block 1, indices to ALL_ANIMAL_DISTS
+    BUNDLE_LENGTH_SEQ = [[20, 25, 30, 25, 20, 20, 30, 20, 30, 30, 25, 25]] * 3
+
+    # set a flag that determines if mole locations are sampled on the fly
+    # or selected (randomly) from an exact-proportion list
+    EXACT_PROPORTION = True
     
     g = Game(
         mumble = args.mumble,
@@ -336,7 +351,8 @@ if __name__ == '__main__':
         dist_seq = DIST_SEQ, # the sequence of distributions implemented by each bundle; N = # of bundles
         bundle_length_seq = BUNDLE_LENGTH_SEQ, # the length of each bundle; N = # of bundles
         all_mole_dists = ALL_MOLE_DISTS, # the probability distribution of mole positions; N = # of unique distributions
-        all_animal_dists = ALL_ANIMAL_DISTS) # the probability distribution of background animals; N = # of unique animal distributions
+        all_animal_dists = ALL_ANIMAL_DISTS,
+        exact_proportion = EXACT_PROPORTION) # the probability distribution of background animals; N = # of unique animal distributions
 
     g.start()
    
