@@ -3,7 +3,6 @@
 
 from __future__ import print_function
 from wam import *
-from menu import *
 from slidemenu.slidemenu import *
 import sys, argparse, gzip
 from datetime import datetime
